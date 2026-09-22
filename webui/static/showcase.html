@@ -67,14 +67,20 @@ body{margin:0;background:#000;color:var(--ink);
 .verdict i{width:9px;height:9px;border-radius:99px;background:currentColor;
   display:block;font-style:normal}
 /* distribution */
+.vhead{
+  display:grid;grid-template-columns:228px 1fr 54px;gap:12px;
+  font:700 10px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin:6px 0 13px;
+}
+.vhead span:last-child{grid-column:3;text-align:right}
 .drow{display:grid;grid-template-columns:228px 1fr 54px;gap:12px;
   align-items:center;margin-bottom:10px}
 .drow .dk{font:600 12.5px/1 var(--mono);color:var(--faint);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drow.top .dk{color:var(--ink)}
-.dbar{height:16px;background:#12151a;border:1px solid #262b34;
+.dbar{display:block;height:16px;background:#12151a;border:1px solid #262b34;
   border-radius:5px;overflow:hidden}
-.dfill{height:100%;background:linear-gradient(90deg,#2dd4bf,#5eead4);
+.dfill{display:block;height:100%;background:linear-gradient(90deg,#2dd4bf,#5eead4);
   box-shadow:0 0 14px rgba(94,234,212,.35);min-width:3px}
 .dv{font:700 15px/1 var(--mono);text-align:right;color:var(--dim)}
 .drow.top .dv{color:var(--ink)}
@@ -235,6 +241,25 @@ function panel3(d){
     ask('why was I charged this?', {review: REPLY, review_all: true})
   ]);
   document.querySelector('#out').innerHTML = panel1(a) + panel2(b) + panel3(c);
+
+  // ?panel=N renders exactly one panel, flush to the corner, so a headless
+  // browser sized 1200x675 captures it with no chrome around it.
+  const only = new URLSearchParams(location.search).get('panel');
+  if (only) {
+    const panels = [...document.querySelectorAll('.panel')];
+    const keep = panels[parseInt(only, 10) - 1];
+    if (keep) {
+      document.body.style.padding = '0';
+      document.body.style.background = '#08090b';
+      document.querySelector('.wrap').style.maxWidth = 'none';
+      document.querySelector('.tip').remove();
+      panels.forEach(p => { if (p !== keep) p.remove(); });
+      keep.style.margin = '0';
+      keep.style.border = '0';
+      keep.style.borderRadius = '0';
+    }
+  }
+  document.body.dataset.ready = '1';
 })();
 </script>
 </body>
