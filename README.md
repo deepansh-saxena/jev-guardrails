@@ -51,16 +51,25 @@ real miss on a documented must-answer case.
 | **jev** | $0.000060 | 28,531 | **$0.0231** |
 | **llm** | $0.001019 | 51,436 | $0.0413 |
 
-17× on the guardrail line, but the larger effect is the agent: guardrailing
+19× on a single scope check ($60 vs $1,118 per million), but the larger effect is the agent: guardrailing
 with Jev takes the rules *out of the system prompt* (8,694 → 3,004 chars), and
 that prompt is re-sent on every model call in the agent loop. End to end,
 **1.79× cheaper at the same accuracy**. Prompt caching is off — enabling it
 would narrow this.
 
-**Coverage.** 25 behavioural rules. Jev evaluates all 25 in one request
-(~200ms); the LLM judge samples 4–8 because judging all of them costs more than
-the reply did. On a reply that was both condescending and blame-shifting, the
-sampled judge checked neither rule.
+**Coverage — the fair comparison.** 25 behavioural rules. The LLM judge normally
+samples 4–8 per turn, because judging all 25 costs more than the reply did. That
+is a budget constraint, not a policy decision — so the honest comparison forces
+both to evaluate all 25:
+
+| | rules | latency | cost | per 1M reviews |
+|---|---|---|---|---|
+| **jev** | 25/25 | **204ms** | $0.000125 | **$125** |
+| **llm** | 25/25 | 5,492ms | $0.0059 | $5,880 |
+
+**27× faster, 47× cheaper at identical coverage** — $5,755 more per million
+reviews to check the same rules. Run it with
+`python compare_backends.py --review "<a reply>"`.
 
 **Calibration.** The LLM judge returned 0.96–0.99 on nearly every case, which
 makes threshold-based routing ("uncertain → human") impossible. Jev's spread

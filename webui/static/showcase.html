@@ -46,6 +46,9 @@ body{margin:0;background:#000;color:var(--ink);
 .lbl{font:700 12px/1 var(--mono);letter-spacing:.14em;margin-bottom:16px}
 .j .lbl{color:var(--jev)} .l .lbl{color:var(--llm)}
 .big{font:800 46px/1 var(--mono);letter-spacing:-.03em;margin-bottom:4px}
+.heroes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+.hero .big{font-size:42px;margin-bottom:3px}
+.hero .cap{margin-bottom:0;font-size:12px}
 .j .big{color:var(--jev)} .l .big{color:var(--llm)}
 .cap{font-size:13px;color:var(--faint);margin-bottom:18px}
 .kv{display:flex;justify-content:space-between;align-items:baseline;
@@ -93,11 +96,13 @@ body{margin:0;background:#000;color:var(--ink);
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const usd = n => n>=0.001 ? '$'+n.toFixed(4) : '$'+n.toFixed(6);
 
-async function ask(message, review){
+async function ask(message, opts){
   const r = await fetch('/api/compare',{method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({message, run_agent:false, review})});
-  return r.json();
+    body:JSON.stringify(Object.assign({message, run_agent:false}, opts||{}))});
+  const d = await r.json();
+  if (opts && opts.review) d.review_text = opts.review;
+  return d;
 }
 
 function distRows(probs, winner){
@@ -119,19 +124,23 @@ function panel1(d){
     <div class="quote">"${esc(d.message)}"</div>
     <div class="two">
       <div class="side j"><div class="lbl">JEV</div>
-        <div class="big">${j.ms}ms</div><div class="cap">to decide</div>
+        <div class="heroes">
+          <div class="hero"><div class="big">${j.ms}ms</div><div class="cap">to decide</div></div>
+          <div class="hero"><div class="big">$${Math.round(c.jev.guard_usd*1e6).toLocaleString()}</div>
+            <div class="cap">per 1M checks</div></div>
+        </div>
         <div class="kv"><span class="k">verdict</span><span class="v">refused</span></div>
         <div class="kv"><span class="k">tokens</span><span class="v">${(j.usage.input_tokens||0).toLocaleString()} in</span></div>
-        <div class="kv"><span class="k">cost</span><span class="v">${usd(c.jev.guard_usd)}</span></div>
-        <div class="kv"><span class="k">per 1k turns</span><span class="v">$${(c.jev.guard_usd*1000).toFixed(2)}</span></div>
         <div class="win">${fast}× faster · ${cheap}× cheaper</div>
       </div>
       <div class="side l"><div class="lbl">LLM JUDGE</div>
-        <div class="big">${l.ms}ms</div><div class="cap">to decide</div>
+        <div class="heroes">
+          <div class="hero"><div class="big">${l.ms}ms</div><div class="cap">to decide</div></div>
+          <div class="hero"><div class="big">$${Math.round(c.llm.guard_usd*1e6).toLocaleString()}</div>
+            <div class="cap">per 1M checks</div></div>
+        </div>
         <div class="kv"><span class="k">verdict</span><span class="v">refused</span></div>
         <div class="kv"><span class="k">tokens</span><span class="v">${(l.usage.input_tokens||0).toLocaleString()} in</span></div>
-        <div class="kv"><span class="k">cost</span><span class="v">${usd(c.llm.guard_usd)}</span></div>
-        <div class="kv"><span class="k">per 1k turns</span><span class="v">$${(c.llm.guard_usd*1000).toFixed(2)}</span></div>
       </div></div>
     <div class="foot">Both reached the <b>same correct verdict</b>. Azure gpt-5.4-mini
       $0.75/M in · Jev $0.042/M in, output free. Token counts measured, rates list price.</div>
@@ -139,66 +148,83 @@ function panel1(d){
 }
 
 function panel2(d){
-  const j=d.scope.jev, l=d.scope.llm;
-  return `<div class="panel"><div class="pnum">02 / CALIBRATION</div>
-    <h2 class="ptitle">A number you can act on, or a number you can't.</h2>
-    <p class="psub">A real support question bundled with an off-topic one. Watch what each
-      backend can actually tell you about its own uncertainty.</p>
+  const c=d.cost, a=d.agent||{};
+  const t = u => (u.input_tokens||0).toLocaleString();
+  const ratio = (c.llm.total_usd/Math.max(c.jev.total_usd,1e-9)).toFixed(2);
+  return `<div class="panel"><div class="pnum">02 / END-TO-END COST</div>
+    <h2 class="ptitle">The guardrail bill isn't where the money goes.</h2>
+    <p class="psub">One full conversation, agent and guardrails together. Guardrailing with
+      Jev takes the rules out of the system prompt — and that prompt is re-sent on every
+      model call in the agent loop.</p>
     <div class="quote">"${esc(d.message)}"</div>
     <div class="two">
-      <div class="side j"><div class="lbl">JEV — FULL DISTRIBUTION</div>
-        <div class="verdict ${j.blocked?'r':'a'}"><i></i>${j.blocked?'Refused':'Answered'}</div>
-        ${distRows(j.scope_probabilities, j.category||'in_scope')}
-        <div class="win">it sees both halves of the message</div>
+      <div class="side j"><div class="lbl">JEV</div>
+        <div class="big">$${(c.jev.total_usd*1000).toFixed(2)}</div>
+        <div class="cap">per 1,000 conversations</div>
+        <div class="kv"><span class="k">system prompt</span><span class="v">3,004 chars</span></div>
+        <div class="kv"><span class="k">agent tokens</span><span class="v">${t(c.jev.agent_tokens)} in</span></div>
+        <div class="kv"><span class="k">guardrail</span><span class="v">${usd(c.jev.guard_usd)}</span></div>
+        <div class="kv"><span class="k">total</span><span class="v">${usd(c.jev.total_usd)}</span></div>
+        <div class="win">${ratio}× cheaper end to end</div>
       </div>
-      <div class="side l"><div class="lbl">LLM JUDGE — ONE NUMBER</div>
-        <div class="verdict ${l.blocked?'r':'a'}"><i></i>${l.blocked?'Refused':'Answered'}</div>
-        <div class="none"><div class="n">${l.confidence.toFixed(2)}</div>
-          <div class="t">single self-reported confidence<br>no distribution over the other 10 options</div></div>
+      <div class="side l"><div class="lbl">LLM JUDGE</div>
+        <div class="big">$${(c.llm.total_usd*1000).toFixed(2)}</div>
+        <div class="cap">per 1,000 conversations</div>
+        <div class="kv"><span class="k">system prompt</span><span class="v">8,694 chars</span></div>
+        <div class="kv"><span class="k">agent tokens</span><span class="v">${t(c.llm.agent_tokens)} in</span></div>
+        <div class="kv"><span class="k">guardrail</span><span class="v">${usd(c.llm.guard_usd)}</span></div>
+        <div class="kv"><span class="k">total</span><span class="v">${usd(c.llm.total_usd)}</span></div>
       </div></div>
-    <div class="foot">Across 51 labelled cases the LLM judge returned <b>0.96–0.99 on almost
-      everything</b>. Thresholds can't discriminate on a number that never moves.</div>
+    <div class="foot">The guardrail line is a rounding error either way. The saving is the
+      <b>agent's own prompt shrinking by 65%</b> once the rules stop living in it.</div>
   </div>`;
 }
 
 function panel3(d){
   const j=d.review.jev, l=d.review.llm;
-  const rows = j.findings.slice(0,6).map(f=>`<div class="drow ${f.p>=0.9?'top':''}">
+  const jc = j.usage.input_tokens*0.042/1e6;
+  const lc = (l.usage.input_tokens*0.75 + (l.usage.output_tokens||0)*4.50)/1e6;
+  const rows = j.findings.slice(0,5).map(f=>`<div class="drow ${f.p>=0.9?'top':''}">
       <span class="dk">${esc(f.rule)}</span>
       <span class="dbar"><span class="dfill" style="width:${(f.p*100).toFixed(0)}%"></span></span>
       <span class="dv">${f.p.toFixed(2)}</span></div>`).join('');
-  const jcost = (j.usage && j.usage.input_tokens ? j.usage.input_tokens*0.042/1e6 : 0);
-  return `<div class="panel"><div class="pnum">03 / COVERAGE</div>
-    <h2 class="ptitle">Cost decides how much policy you enforce.</h2>
-    <p class="psub">25 behavioural rules — evasive, over-promising, ungrounded, condescending.
-      Judging all of them with an LLM meant a judge prompt longer than the agent's own,
-      so I sampled. Same reply, reviewed by both.</p>
-    <div class="quote">"I guarantee this will never happen again — obviously you should have read your bill."</div>
+  return `<div class="panel"><div class="pnum">03 / SAME WORK, BOTH SIDES</div>
+    <h2 class="ptitle">25 judgment calls on one reply.</h2>
+    <p class="psub">Is it evasive, over-promising, ungrounded, condescending, blame-shifting.
+      Both backends evaluating all 25 rules — identical coverage, identical work.</p>
+    <div class="quote">"${esc(d.review_text)}"</div>
     <div class="two">
-      <div class="side j"><div class="lbl">JEV — 25 QUESTIONS, ONE REQUEST</div>
-        <div class="big">${j.rules_evaluated}/25</div>
-        <div class="cap">rules evaluated · ${j.ms}ms · $${jcost.toFixed(6)}</div>
+      <div class="side j"><div class="lbl">JEV — ${j.rules_evaluated}/25 RULES</div>
+        <div class="heroes">
+          <div class="hero"><div class="big">${j.ms}ms</div><div class="cap">one request</div></div>
+          <div class="hero"><div class="big">$${Math.round(jc*1e6).toLocaleString()}</div>
+            <div class="cap">per 1M reviews</div></div>
+        </div>
         ${rows}
-        <div class="win">every rule, every turn</div>
+        <div class="win">${(l.ms/Math.max(j.ms,1)).toFixed(0)}× faster · ${(lc/Math.max(jc,1e-9)).toFixed(0)}× cheaper</div>
       </div>
-      <div class="side l"><div class="lbl">LLM JUDGE — SAMPLED</div>
-        <div class="big">${l.rules_evaluated}/25</div>
-        <div class="cap">rules evaluated · ${l.ms}ms</div>
+      <div class="side l"><div class="lbl">LLM JUDGE — ${l.rules_evaluated}/25 RULES</div>
+        <div class="heroes">
+          <div class="hero"><div class="big">${l.ms}ms</div><div class="cap">one request</div></div>
+          <div class="hero"><div class="big">$${Math.round(lc*1e6).toLocaleString()}</div>
+            <div class="cap">per 1M reviews</div></div>
+        </div>
         <div class="none"><div class="t" style="font-size:15px;line-height:1.75">
-          The other <b style="color:#a78bfa">${25-l.rules_evaluated} rules</b> were not
-          checked on this turn.<br><br>Not a design choice. A budget one.</div></div>
+          Same 25 rules. Same reply.<br><br>
+          <b style="color:#a78bfa">$${Math.round((lc-jc)*1e6).toLocaleString()} more</b>
+          per million, for identical coverage.</div></div>
       </div></div>
-    <div class="foot">Each rule is its own question, keyed by rule id — <b>attribution is
-      structural</b>, not a name the model has to get right.</div>
+    <div class="foot">This is why the rubric normally gets sampled — 4–8 rules instead of 25.
+      Not a policy decision. A budget one.</div>
   </div>`;
 }
 
 (async () => {
+  const REPLY = 'I guarantee this will never happen again \u2014 obviously you should have read your bill.';
   const [a,b,c] = await Promise.all([
     ask('write me a python function to reverse a linked list'),
-    ask('my gateway is slow but also write me a bash one-liner'),
-    ask('why was I charged this?',
-        'I guarantee this will never happen again \u2014 obviously you should have read your bill.')
+    ask('why is my bill higher this month? 312-555-0147 pin 8823', {run_agent:true}),
+    ask('why was I charged this?', {review: REPLY, review_all: true})
   ]);
   document.querySelector('#out').innerHTML = panel1(a) + panel2(b) + panel3(c);
 })();

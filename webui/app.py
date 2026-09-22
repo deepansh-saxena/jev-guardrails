@@ -82,6 +82,7 @@ class CompareRequest(BaseModel):
     message: str
     desk: str = "triage"
     review: str | None = None   # optional assistant reply to judge
+    review_all: bool = False    # force the LLM judge to evaluate every rule too
     run_agent: bool = True      # also run the full agent under each backend
 
 
@@ -250,6 +251,14 @@ def compare(request: CompareRequest) -> dict[str, Any]:
     scope = {name: future.result() for name, future in futures.items()}
 
     review = None
+    if request.review and request.review_all:
+        # Equal-coverage comparison: the LLM judge samples 4-8 rules only to
+        # control cost. Forcing all 25 shows what the same coverage actually
+        # costs, which is the fair number.
+        from tlife_agent.config import GUARDRAIL_CONFIG
+
+        object.__setattr__(GUARDRAIL_CONFIG, "soft_review_min", 25)
+        object.__setattr__(GUARDRAIL_CONFIG, "soft_review_max", 25)
     if request.review:
         context = f"CUSTOMER: {request.message}"
         rf = {
