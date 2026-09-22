@@ -28,6 +28,47 @@ like a real contact center) instead of back through triage.
 
 ---
 
+## Results
+
+51 labelled cases (`evals/scope_cases.py`), both backends, same rules, same
+thresholds, same agent. Reproduce with `python evals/run_scope.py`.
+
+| | accuracy | false refusals | missed | median latency |
+|---|---|---|---|---|
+| **jev** | 48/51 (94%) | 1 | 2 | **177ms** |
+| **llm** | 46/51 (90%) | 0 | 5 | 1193ms |
+
+**Accuracy is a tie.** Two of the LLM's five misses are an artefact of this
+repo's own content-filter handling (a provider policy refusal escalates instead
+of blocking, so a jailbreak gets through). Excluding those, genuine errors are
+**3 vs 3**. Jev's one false refusal — *"is this conversation recorded"* — is a
+real miss on a documented must-answer case.
+
+**Cost**, measured on one conversation:
+
+| | guardrail calls | agent input tokens | total / turn |
+|---|---|---|---|
+| **jev** | $0.000060 | 28,531 | **$0.0231** |
+| **llm** | $0.001019 | 51,436 | $0.0413 |
+
+17× on the guardrail line, but the larger effect is the agent: guardrailing
+with Jev takes the rules *out of the system prompt* (8,694 → 3,004 chars), and
+that prompt is re-sent on every model call in the agent loop. End to end,
+**1.79× cheaper at the same accuracy**. Prompt caching is off — enabling it
+would narrow this.
+
+**Coverage.** 25 behavioural rules. Jev evaluates all 25 in one request
+(~200ms); the LLM judge samples 4–8 because judging all of them costs more than
+the reply did. On a reply that was both condescending and blame-shifting, the
+sampled judge checked neither rule.
+
+**Calibration.** The LLM judge returned 0.96–0.99 on nearly every case, which
+makes threshold-based routing ("uncertain → human") impossible. Jev's spread
+across the same set was 0.44–1.00.
+
+Rates: Azure `gpt-5.4-mini` $0.75/M in, $4.50/M out; Jev $0.042/M in, output
+free. Token counts are measured; rates are list price.
+
 > **Note on the dev server.** `.claude/launch.json` runs `python3 -m uvicorn`.
 > That must be the interpreter that has the dependencies installed — if your
 > shell resolves `python3` to a system Python, point `runtimeExecutable` at the
