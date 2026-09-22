@@ -38,6 +38,11 @@ body{margin:0;background:#000;color:var(--ink);
   border-left:3px solid var(--jev);border-radius:0 8px 8px 0;
   padding:14px 18px;margin:0 0 26px;
 }
+.qlabel{
+  font:700 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:7px;
+}
+.qlabel.agent{color:#c4b5fd}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:22px;flex:1;min-height:0}
 .side{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:22px 24px;display:flex;flex-direction:column}
@@ -62,7 +67,7 @@ body{margin:0;background:#000;color:var(--ink);
 .verdict i{width:9px;height:9px;border-radius:99px;background:currentColor;
   display:block;font-style:normal}
 /* distribution */
-.drow{display:grid;grid-template-columns:186px 1fr 54px;gap:12px;
+.drow{display:grid;grid-template-columns:228px 1fr 54px;gap:12px;
   align-items:center;margin-bottom:10px}
 .drow .dk{font:600 12.5px/1 var(--mono);color:var(--faint);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -121,6 +126,7 @@ function panel1(d){
     <h2 class="ptitle">Same decision. Same input. Same output.</h2>
     <p class="psub">An off-topic request both backends refuse — so neither runs the agent,
       and the work is identical. The only difference is who answered the question.</p>
+    <div class="qlabel">customer message</div>
     <div class="quote">"${esc(d.message)}"</div>
     <div class="two">
       <div class="side j"><div class="lbl">JEV</div>
@@ -192,6 +198,7 @@ function panel3(d){
     <h2 class="ptitle">25 judgment calls on one reply.</h2>
     <p class="psub">Is it evasive, over-promising, ungrounded, condescending, blame-shifting.
       Both backends evaluating all 25 rules — identical coverage, identical work.</p>
+    <div class="qlabel agent">assistant reply under review &mdash; a deliberately bad test fixture</div>
     <div class="quote">"${esc(d.review_text)}"</div>
     <div class="two">
       <div class="side j"><div class="lbl">JEV — ${j.rules_evaluated}/25 RULES</div>
@@ -200,6 +207,7 @@ function panel3(d){
           <div class="hero"><div class="big">$${Math.round(jc*1e6).toLocaleString()}</div>
             <div class="cap">per 1M reviews</div></div>
         </div>
+        <div class="vhead"><span>rules it found broken</span><span>P(broken)</span></div>
         ${rows}
         <div class="win">${(l.ms/Math.max(j.ms,1)).toFixed(0)}× faster · ${(lc/Math.max(jc,1e-9)).toFixed(0)}× cheaper</div>
       </div>

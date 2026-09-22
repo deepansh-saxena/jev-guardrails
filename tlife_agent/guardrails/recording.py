@@ -144,7 +144,8 @@ def record_review(
             clause_id=rule.clause_id or rule.id,
             category=rule.dimension,
             severity=severity_for(desk, rule),  # type: ignore[arg-type]
-            title=f"{rule.dimension.title()}: {rule.rule}",
+            title=(f"{rule.label.capitalize()}" if rule.label
+                   else f"{rule.dimension.title()}: {rule.rule}"),
             detail=(
                 f"P(violated)={finding.probability:.2f}. Reviewed against "
                 f"{decision.rules_evaluated} of the {len(RULES_BY_ID)} soft rules."

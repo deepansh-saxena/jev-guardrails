@@ -228,7 +228,9 @@ def _review_for(name: str, reply: str, context: str, desk: str) -> dict[str, Any
         "findings": sorted(
             [
                 {
-                    "rule": f.rule_id.replace("soft.", ""),
+                    "rule": (RULES_BY_ID[f.rule_id].label
+                             if f.rule_id in RULES_BY_ID and RULES_BY_ID[f.rule_id].label
+                             else f.rule_id.replace("soft.", "")),
                     "p": round(f.probability, 4),
                     "text": RULES_BY_ID[f.rule_id].rule
                     if f.rule_id in RULES_BY_ID else "",

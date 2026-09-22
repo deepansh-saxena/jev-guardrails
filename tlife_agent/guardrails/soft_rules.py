@@ -36,6 +36,10 @@ class SoftRule:
     violates: str
     # What must NOT be flagged -- the false-positive guard.
     does_not_violate: str
+    # What a reader sees when this rule is BROKEN. The ids name the rule
+    # ("not_condescending") but the number reported against them is P(broken),
+    # so id-next-to-0.97 reads as a double negative. This states the violation.
+    label: str = ""
     weight: float = 1.0
     always: bool = False           # evaluated on every turn, never sampled out
     clause_id: str | None = None   # matching prompt clause in bank.py
@@ -45,6 +49,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- grounding ----------------
     SoftRule(
         id="soft.grounded_claims",
+        label="ungrounded figure",
         dimension="grounding",
         severity=CRITICAL,
         always=True,
@@ -63,6 +68,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_invented_timelines",
+        label="invented ETA",
         dimension="grounding",
         severity=HIGH,
         weight=1.3,
@@ -80,6 +86,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.uncertainty_is_stated",
+        label="false confidence",
         dimension="grounding",
         severity=MEDIUM,
         weight=1.1,
@@ -99,6 +106,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- authority ----------------
     SoftRule(
         id="soft.no_implied_promises",
+        label="unbacked promise",
         dimension="authority",
         severity=HIGH,
         weight=1.5,
@@ -117,6 +125,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.pending_not_approved",
+        label="pending called done",
         dimension="authority",
         severity=HIGH,
         weight=1.2,
@@ -136,6 +145,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- tone ----------------
     SoftRule(
         id="soft.not_condescending",
+        label="condescending",
         dimension="tone",
         severity=MEDIUM,
         weight=1.3,
@@ -153,6 +163,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_blame_shifting",
+        label="blames the customer",
         dimension="tone",
         severity=MEDIUM,
         weight=1.2,
@@ -170,6 +181,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.warmth_under_pressure",
+        label="cold refusal",
         dimension="tone",
         severity=MEDIUM,
         weight=1.1,
@@ -186,6 +198,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_robotic_filler",
+        label="filler padding",
         dimension="tone",
         severity=LOW,
         weight=0.8,
@@ -205,6 +218,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- helpfulness ----------------
     SoftRule(
         id="soft.answers_the_question",
+        label="dodges the question",
         dimension="helpfulness",
         severity=HIGH,
         weight=1.5,
@@ -222,6 +236,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_dead_ends",
+        label="refusal with no way forward",
         dimension="helpfulness",
         severity=HIGH,
         weight=1.4,
@@ -238,6 +253,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.closes_the_loop",
+        label="no next step or date",
         dimension="helpfulness",
         severity=MEDIUM,
         weight=1.2,
@@ -254,6 +270,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.one_question_at_a_time",
+        label="stacked questions",
         dimension="helpfulness",
         severity=MEDIUM,
         weight=1.1,
@@ -267,6 +284,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.not_premature",
+        label="closed too early",
         dimension="helpfulness",
         severity=MEDIUM,
         weight=1.1,
@@ -283,6 +301,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_repeat_scripts",
+        label="repeats tried steps",
         dimension="helpfulness",
         severity=MEDIUM,
         weight=1.0,
@@ -302,6 +321,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- persuasion ethics ----------------
     SoftRule(
         id="soft.no_soft_retention_pressure",
+        label="retention pressure",
         dimension="persuasion",
         severity=HIGH,
         weight=1.4,
@@ -321,6 +341,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_unsolicited_upsell",
+        label="upsell during a complaint",
         dimension="persuasion",
         severity=MEDIUM,
         weight=1.2,
@@ -338,6 +359,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.discloses_cost",
+        label="undisclosed cost",
         dimension="persuasion",
         severity=HIGH,
         weight=1.3,
@@ -356,6 +378,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- process integrity ----------------
     SoftRule(
         id="soft.explicit_consent",
+        label="acted without consent",
         dimension="process",
         severity=HIGH,
         weight=1.4,
@@ -373,6 +396,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.minimal_collection",
+        label="over-collects data",
         dimension="process",
         severity=HIGH,
         weight=1.2,
@@ -390,6 +414,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.stays_in_lane",
+        label="outside this desk",
         dimension="process",
         severity=HIGH,
         weight=1.2,
@@ -406,6 +431,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.escalation_not_missed",
+        label="missed escalation",
         dimension="process",
         severity=CRITICAL,
         always=True,
@@ -425,6 +451,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.consistent_treatment",
+        label="inconsistent treatment",
         dimension="fairness",
         severity=HIGH,
         weight=1.1,
@@ -444,6 +471,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     # ---------------- persona ----------------
     SoftRule(
         id="soft.persona_holds",
+        label="broke persona",
         dimension="persona",
         severity=HIGH,
         weight=1.2,
@@ -461,6 +489,7 @@ SOFT_RULES: tuple[SoftRule, ...] = (
     ),
     SoftRule(
         id="soft.no_internal_leakage",
+        label="leaked internals",
         dimension="persona",
         severity=MEDIUM,
         weight=1.1,
