@@ -1,0 +1,19 @@
+# Core framework
+langchain>=1.2,<2
+langgraph>=1.1,<2
+langchain-core>=1.2,<2
+
+# Default provider: OpenAI (TLIFE_MODEL defaults to openai:gpt-4.1)
+langchain-openai>=1.1
+openai>=2.0
+
+# Other providers are one install + one env var away, e.g.
+#   pip install langchain-anthropic && export TLIFE_MODEL=anthropic:claude-opus-5
+# langchain-anthropic>=1.4
+
+# Guardrail backend B: TypeSafe Jev (typed decisions instead of prompt rules)
+# Installing this upgrades langchain-core to >=1.6; the app is tested on both.
+langchain-typesafe>=0.0.1a3
+
+# Optional, for `python -m pytest tests`
+# pytest>=8

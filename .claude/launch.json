@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "guardrail-compare",
+      "runtimeExecutable": "/Users/deepanshsaxena/anaconda3/bin/python3",
+      "runtimeArgs": ["-m", "uvicorn", "webui.app:app", "--port", "8420"],
+      "port": 8420
+    }
+  ]
+}

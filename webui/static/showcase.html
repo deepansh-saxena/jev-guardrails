@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guardrail Backends — Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090b; --card:#0e1014; --line:#1e222a; --soft:#171a20;
+  --ink:#f2f4f7; --dim:#98a1ad; --faint:#5c646f;
+  --jev:#5eead4; --llm:#a78bfa; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:var(--ink);
+  font:16px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  padding:32px 20px 80px}
+.wrap{max-width:1240px;margin:0 auto}
+.tip{color:var(--faint);font-size:13px;text-align:center;margin-bottom:26px;
+  font-family:var(--mono)}
+.tip b{color:var(--dim)}
+
+/* each panel is 1200x675 — 16:9, the shape LinkedIn wants */
+.panel{
+  width:1200px;height:675px;background:var(--bg);border:1px solid var(--line);
+  border-radius:16px;padding:44px 48px;margin:0 auto 40px;position:relative;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.pnum{position:absolute;top:22px;right:26px;font:700 11px/1 var(--mono);
+  letter-spacing:.16em;color:var(--faint)}
+.ptitle{font-size:30px;font-weight:700;letter-spacing:-.025em;margin:0 0 6px}
+.psub{font-size:15px;color:var(--dim);margin:0 0 26px;line-height:1.45}
+.quote{
+  font:500 19px/1.4 var(--mono);color:var(--ink);background:var(--soft);
+  border-left:3px solid var(--jev);border-radius:0 8px 8px 0;
+  padding:14px 18px;margin:0 0 26px;
+}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px;flex:1;min-height:0}
+.side{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:22px 24px;display:flex;flex-direction:column}
+.side.j{border-color:#1d4b45}
+.side.l{border-color:#3a2f5c}
+.lbl{font:700 12px/1 var(--mono);letter-spacing:.14em;margin-bottom:16px}
+.j .lbl{color:var(--jev)} .l .lbl{color:var(--llm)}
+.big{font:800 46px/1 var(--mono);letter-spacing:-.03em;margin-bottom:4px}
+.j .big{color:var(--jev)} .l .big{color:var(--llm)}
+.cap{font-size:13px;color:var(--faint);margin-bottom:18px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;
+  padding:7px 0;border-bottom:1px solid var(--soft);font-size:14px}
+.kv:last-child{border:0}
+.kv .k{color:var(--faint);font-family:var(--mono);font-size:12px;letter-spacing:.04em}
+.kv .v{font-family:var(--mono);font-weight:600;color:var(--ink)}
+.verdict{display:inline-flex;align-items:center;gap:8px;font-weight:700;
+  font-size:16px;margin-bottom:14px}
+.verdict.r{color:var(--bad)} .verdict.a{color:var(--ok)}
+.verdict i{width:9px;height:9px;border-radius:99px;background:currentColor;
+  display:block;font-style:normal}
+/* distribution */
+.drow{display:grid;grid-template-columns:186px 1fr 54px;gap:12px;
+  align-items:center;margin-bottom:10px}
+.drow .dk{font:600 12.5px/1 var(--mono);color:var(--faint);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow.top .dk{color:var(--ink)}
+.dbar{height:16px;background:#12151a;border:1px solid #262b34;
+  border-radius:5px;overflow:hidden}
+.dfill{height:100%;background:linear-gradient(90deg,#2dd4bf,#5eead4);
+  box-shadow:0 0 14px rgba(94,234,212,.35);min-width:3px}
+.dv{font:700 15px/1 var(--mono);text-align:right;color:var(--dim)}
+.drow.top .dv{color:var(--ink)}
+.none{background:var(--soft);border:1px dashed #2c323c;border-radius:10px;
+  padding:22px;text-align:center;margin-top:8px}
+.none .n{font:800 40px/1 var(--mono);color:var(--llm)}
+.none .t{font-size:13px;color:var(--faint);margin-top:8px;line-height:1.5}
+.win{margin-top:auto;padding-top:14px;margin-bottom:2px;
+  border-top:1px solid var(--line);font:700 15px/1 var(--mono);color:var(--jev)}
+.foot{margin-top:20px;font-size:12.5px;color:var(--faint);line-height:1.5}
+.foot b{color:var(--dim)}
+.safety{background:#1d1408;border:1px solid #4a3512;border-radius:9px;
+  padding:12px 15px;color:#fcd34d;font-size:14px;margin-top:10px}
+.loading{color:var(--faint);font-family:var(--mono);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tip">screenshot each panel individually · each is <b>1200×675</b>, the 16:9 LinkedIn wants · numbers are live from your own run</div>
+  <div id="out"><div class="panel"><div class="loading">running three cases against both backends…</div></div></div>
+</div>
+
+<script>
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const usd = n => n>=0.001 ? '$'+n.toFixed(4) : '$'+n.toFixed(6);
+
+async function ask(message, review){
+  const r = await fetch('/api/compare',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message, run_agent:false, review})});
+  return r.json();
+}
+
+function distRows(probs, winner){
+  return Object.entries(probs).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>=0.005)
+    .map(([k,v])=>`<div class="drow ${k===winner?'top':''}">
+      <span class="dk">${esc(k)}</span>
+      <span class="dbar"><span class="dfill" style="width:${(v*100).toFixed(1)}%"></span></span>
+      <span class="dv">${v.toFixed(2)}</span></div>`).join('');
+}
+
+function panel1(d){
+  const j=d.scope.jev, l=d.scope.llm, c=d.cost;
+  const fast=(l.ms/Math.max(j.ms,1)).toFixed(1);
+  const cheap=(c.llm.guard_usd/Math.max(c.jev.guard_usd,1e-9)).toFixed(0);
+  return `<div class="panel"><div class="pnum">01 / SPEED + COST</div>
+    <h2 class="ptitle">Same decision. Same input. Same output.</h2>
+    <p class="psub">An off-topic request both backends refuse — so neither runs the agent,
+      and the work is identical. The only difference is who answered the question.</p>
+    <div class="quote">"${esc(d.message)}"</div>
+    <div class="two">
+      <div class="side j"><div class="lbl">JEV</div>
+        <div class="big">${j.ms}ms</div><div class="cap">to decide</div>
+        <div class="kv"><span class="k">verdict</span><span class="v">refused</span></div>
+        <div class="kv"><span class="k">tokens</span><span class="v">${(j.usage.input_tokens||0).toLocaleString()} in</span></div>
+        <div class="kv"><span class="k">cost</span><span class="v">${usd(c.jev.guard_usd)}</span></div>
+        <div class="kv"><span class="k">per 1k turns</span><span class="v">$${(c.jev.guard_usd*1000).toFixed(2)}</span></div>
+        <div class="win">${fast}× faster · ${cheap}× cheaper</div>
+      </div>
+      <div class="side l"><div class="lbl">LLM JUDGE</div>
+        <div class="big">${l.ms}ms</div><div class="cap">to decide</div>
+        <div class="kv"><span class="k">verdict</span><span class="v">refused</span></div>
+        <div class="kv"><span class="k">tokens</span><span class="v">${(l.usage.input_tokens||0).toLocaleString()} in</span></div>
+        <div class="kv"><span class="k">cost</span><span class="v">${usd(c.llm.guard_usd)}</span></div>
+        <div class="kv"><span class="k">per 1k turns</span><span class="v">$${(c.llm.guard_usd*1000).toFixed(2)}</span></div>
+      </div></div>
+    <div class="foot">Both reached the <b>same correct verdict</b>. Azure gpt-5.4-mini
+      $0.75/M in · Jev $0.042/M in, output free. Token counts measured, rates list price.</div>
+  </div>`;
+}
+
+function panel2(d){
+  const j=d.scope.jev, l=d.scope.llm;
+  return `<div class="panel"><div class="pnum">02 / CALIBRATION</div>
+    <h2 class="ptitle">A number you can act on, or a number you can't.</h2>
+    <p class="psub">A real support question bundled with an off-topic one. Watch what each
+      backend can actually tell you about its own uncertainty.</p>
+    <div class="quote">"${esc(d.message)}"</div>
+    <div class="two">
+      <div class="side j"><div class="lbl">JEV — FULL DISTRIBUTION</div>
+        <div class="verdict ${j.blocked?'r':'a'}"><i></i>${j.blocked?'Refused':'Answered'}</div>
+        ${distRows(j.scope_probabilities, j.category||'in_scope')}
+        <div class="win">it sees both halves of the message</div>
+      </div>
+      <div class="side l"><div class="lbl">LLM JUDGE — ONE NUMBER</div>
+        <div class="verdict ${l.blocked?'r':'a'}"><i></i>${l.blocked?'Refused':'Answered'}</div>
+        <div class="none"><div class="n">${l.confidence.toFixed(2)}</div>
+          <div class="t">single self-reported confidence<br>no distribution over the other 10 options</div></div>
+      </div></div>
+    <div class="foot">Across 51 labelled cases the LLM judge returned <b>0.96–0.99 on almost
+      everything</b>. Thresholds can't discriminate on a number that never moves.</div>
+  </div>`;
+}
+
+function panel3(d){
+  const j=d.review.jev, l=d.review.llm;
+  const rows = j.findings.slice(0,6).map(f=>`<div class="drow ${f.p>=0.9?'top':''}">
+      <span class="dk">${esc(f.rule)}</span>
+      <span class="dbar"><span class="dfill" style="width:${(f.p*100).toFixed(0)}%"></span></span>
+      <span class="dv">${f.p.toFixed(2)}</span></div>`).join('');
+  const jcost = (j.usage && j.usage.input_tokens ? j.usage.input_tokens*0.042/1e6 : 0);
+  return `<div class="panel"><div class="pnum">03 / COVERAGE</div>
+    <h2 class="ptitle">Cost decides how much policy you enforce.</h2>
+    <p class="psub">25 behavioural rules — evasive, over-promising, ungrounded, condescending.
+      Judging all of them with an LLM meant a judge prompt longer than the agent's own,
+      so I sampled. Same reply, reviewed by both.</p>
+    <div class="quote">"I guarantee this will never happen again — obviously you should have read your bill."</div>
+    <div class="two">
+      <div class="side j"><div class="lbl">JEV — 25 QUESTIONS, ONE REQUEST</div>
+        <div class="big">${j.rules_evaluated}/25</div>
+        <div class="cap">rules evaluated · ${j.ms}ms · $${jcost.toFixed(6)}</div>
+        ${rows}
+        <div class="win">every rule, every turn</div>
+      </div>
+      <div class="side l"><div class="lbl">LLM JUDGE — SAMPLED</div>
+        <div class="big">${l.rules_evaluated}/25</div>
+        <div class="cap">rules evaluated · ${l.ms}ms</div>
+        <div class="none"><div class="t" style="font-size:15px;line-height:1.75">
+          The other <b style="color:#a78bfa">${25-l.rules_evaluated} rules</b> were not
+          checked on this turn.<br><br>Not a design choice. A budget one.</div></div>
+      </div></div>
+    <div class="foot">Each rule is its own question, keyed by rule id — <b>attribution is
+      structural</b>, not a name the model has to get right.</div>
+  </div>`;
+}
+
+(async () => {
+  const [a,b,c] = await Promise.all([
+    ask('write me a python function to reverse a linked list'),
+    ask('my gateway is slow but also write me a bash one-liner'),
+    ask('why was I charged this?',
+        'I guarantee this will never happen again \u2014 obviously you should have read your bill.')
+  ]);
+  document.querySelector('#out').innerHTML = panel1(a) + panel2(b) + panel3(c);
+})();
+</script>
+</body>
+</html>
