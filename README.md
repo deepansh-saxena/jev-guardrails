@@ -28,6 +28,13 @@ like a real contact center) instead of back through triage.
 
 ---
 
+> **Note on the dev server.** `.claude/launch.json` runs `python3 -m uvicorn`.
+> That must be the interpreter that has the dependencies installed — if your
+> shell resolves `python3` to a system Python, point `runtimeExecutable` at the
+> right one (e.g. the output of `which -a python3` that can `import uvicorn`),
+> or just run the server directly:
+> `python -m uvicorn webui.app:app --port 8420`
+
 ## Quick start
 
 ```bash
