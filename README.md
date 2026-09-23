@@ -1,9 +1,44 @@
-# T-Life style customer service agent (LangChain + LangGraph)
+# Guardrails: LLM-as-judge vs a purpose-built classifier
+
+A mock carrier support agent whose guardrail layer is built **twice**, behind one
+interface, so the two can be measured against each other on the same traffic:
+
+| | `llm` | `jev` |
+|---|---|---|
+| rules live in | the agent's system prompt (75 clauses, resampled per call) | nowhere in the prompt |
+| judgment calls answered by | a chat model returning JSON | [TypeSafe Jev](https://www.typesafe.ai) answering typed questions |
+| soft rules per review | 4–8 sampled (cost-bound) | all 25, one request |
+| probabilities | self-reported | calibrated (RLCD) |
+
+Same agent, same 25 rules, same thresholds. The only variable is what answers
+the question.
+
+## Reproduce the headline
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env          # add AZURE_OPENAI_* and TYPESAFE_API_KEY
+python evals/run_scope.py     # 51 labelled cases, both backends
+```
+
+One reply judged against all 25 behavioural rules, both backends, equal coverage:
+
+```bash
+python compare_backends.py --review "I guarantee this will never happen again - obviously you should have read your bill."
+```
+
+Typical result: **~200ms vs ~5,500ms**, **$125 vs ~$5,800 per million reviews**.
+Latency and token counts move a few percent run to run, so the multiples land
+between roughly 27–30× on speed and 45–47× on cost. Accuracy across the 51-case
+set comes out even.
+
+---
+
+## The agent under test
 
 A multi-agent carrier support assistant: a **generalized triage agent** that
 routes to six specialist **routines** (billing, payments, home internet, plans &
-devices, tech support, account admin), all over mock tools, and every prompt
-carrying a **stochastic guardrail block** that is resampled on every model call.
+devices, tech support, account admin), all over mock tools.
 
 ```
                     ┌──────────────────────────────────────────┐
@@ -21,7 +56,7 @@ carrying a **stochastic guardrail block** that is resampled on every model call.
 
 Every node is a LangGraph ReAct agent. Handoffs are tools that return
 `Command(goto=..., graph=Command.PARENT)`, so a transfer re-enters the graph at
-the target desk **inside the same turn** with the full message history — the
+the target desk **inside the same turn** with the full message history, and the
 customer never repeats themselves. `active_agent` is checkpointed, so their
 *next* message goes straight back to the desk handling them (sticky routing,
 like a real contact center) instead of back through triage.
@@ -64,11 +99,12 @@ both to evaluate all 25:
 
 | | rules | latency | cost | per 1M reviews |
 |---|---|---|---|---|
-| **jev** | 25/25 | **204ms** | $0.000125 | **$125** |
-| **llm** | 25/25 | 5,492ms | $0.0059 | $5,880 |
+| **jev** | 25/25 | **~200ms** | $0.000125 | **$125** |
+| **llm** | 25/25 | ~5,500ms | ~$0.0058 | ~$5,800 |
 
-**27× faster, 47× cheaper at identical coverage** — $5,755 more per million
-reviews to check the same rules. Run it with
+**~27–30× faster, ~45–47× cheaper at identical coverage** — roughly $5,700 more
+per million reviews to check the same rules. Latency and token counts vary a
+few percent per run. Reproduce with
 `python compare_backends.py --review "<a reply>"`.
 
 **Calibration.** The LLM judge returned 0.96–0.99 on nearly every case, which
@@ -415,6 +451,28 @@ token sampling, and mixing those two knobs makes failures impossible to
 attribute.
 
 ---
+
+## The comparison UI
+
+```bash
+python -m uvicorn webui.app:app --port 8420
+```
+
+`http://localhost:8420` runs every message through **both backends concurrently**
+and shows each one's verdict, full probability distribution, violations, latency
+and cost side by side. Tick *run the full agent* to see each backend's actual
+reply as well; each keeps its own conversation and auth state.
+
+`http://localhost:8420/showcase` renders three result panels at exactly
+1200x675, populated live. `?panel=N` renders one panel flush to the corner, so a
+headless browser captures it cleanly:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new --force-device-scale-factor=2 --virtual-time-budget=60000 \
+  --window-size=1200,675 --screenshot=panel-03.png \
+  "http://localhost:8420/showcase?panel=3"
+```
 
 ## Layout
 
