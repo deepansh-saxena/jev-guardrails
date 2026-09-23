@@ -4,4 +4,3 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-shots/

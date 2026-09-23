@@ -1,44 +1,117 @@
+<div align="center">
+
 # Guardrails: LLM-as-judge vs a purpose-built classifier
 
+**The same agent, the same 25 rules, the same thresholds.
+The only variable is what answers the question.**
+
+[![tests](https://img.shields.io/badge/tests-63%20passing-4ade80?style=flat-square)](tests/test_offline.py)
+[![eval](https://img.shields.io/badge/eval-51%20labelled%20cases-60a5fa?style=flat-square)](evals/scope_cases.py)
+[![python](https://img.shields.io/badge/python-3.11%2B-5eead4?style=flat-square)](requirements.txt)
+[![framework](https://img.shields.io/badge/LangChain-1.2%20%2F%20LangGraph%201.1-a78bfa?style=flat-square)](requirements.txt)
+
+</div>
+
+<br>
+
+<img src="docs/img/panel-03.png" alt="25 rules judged by both backends: 194ms vs 5,825ms, $125 vs $5,894 per million reviews" width="100%">
+
+<br>
+
 A mock carrier support agent whose guardrail layer is built **twice**, behind one
-interface, so the two can be measured against each other on the same traffic:
+interface, so the two can be measured against each other on identical traffic.
 
-| | `llm` | `jev` |
+|  | `llm` | `jev` |
 |---|---|---|
-| rules live in | the agent's system prompt (75 clauses, resampled per call) | nowhere in the prompt |
-| judgment calls answered by | a chat model returning JSON | [TypeSafe Jev](https://www.typesafe.ai) answering typed questions |
-| soft rules per review | 4–8 sampled (cost-bound) | all 25, one request |
-| probabilities | self-reported | calibrated (RLCD) |
+| **rules live in** | the agent's system prompt — 75 clauses, resampled per call | nowhere in the prompt |
+| **judgment calls answered by** | a chat model returning JSON | [TypeSafe Jev](https://www.typesafe.ai) answering typed questions |
+| **soft rules per review** | 4–8 sampled, cost-bound | all 25, one request |
+| **probabilities** | self-reported | calibrated (RLCD) |
+| **system prompt** | 8,694 chars | **3,004 chars** |
 
-Same agent, same 25 rules, same thresholds. The only variable is what answers
-the question.
+<br>
 
-## Reproduce the headline
+## Results
+
+> **Accuracy comes out even. Everything below is what you get at the same quality.**
+
+**51 labelled cases**, both backends, same rules, same thresholds, same agent:
+
+|  | accuracy | false refusals | missed | median latency |
+|---|:---:|:---:|:---:|:---:|
+| **jev** | 48/51 · 94% | 1 | 2 | **177ms** |
+| **llm** | 46/51 · 90% | 0 | 5 | 1,193ms |
+
+Two of the LLM's five misses are an artefact of this repo's own content-filter
+handling: a provider policy refusal escalates instead of blocking, so a
+jailbreak gets through. Excluding those, genuine errors are **3 vs 3**. Jev's
+one false refusal, *"is this conversation recorded"*, is a real miss on a
+documented must-answer case.
+
+### One reply, 25 behavioural rules, equal coverage
+
+Is it evasive, over-promising, ungrounded, condescending, blame-shifting. No
+regex settles any of them.
+
+|  | rules | latency | cost | per 1M reviews |
+|---|:---:|:---:|:---:|:---:|
+| **jev** | 25/25 | **~200ms** | $0.000125 | **$125** |
+| **llm** | 25/25 | ~5,500ms | ~$0.0058 | ~$5,800 |
+
+**~27–30× faster, ~45–47× cheaper at identical coverage** — roughly $5,700 more
+per million reviews to check the same rules. Latency and token counts vary a few
+percent per run.
+
+The LLM judge normally samples 4–8 of the 25, because judging all of them costs
+more than the reply did. That is a budget constraint rather than a policy
+decision, so the honest comparison forces both to full coverage.
+
+### A single scope check
+
+<img src="docs/img/panel-01.png" alt="One scope check: 451ms vs 3,277ms, $60 vs $1,122 per million" width="100%">
+
+Every message waits on the guardrail before the agent starts, and when the
+verdict is *refuse*, that wait is the whole response time.
+
+### Calibration
+
+The LLM judge returned **0.96–0.99 on nearly every case**, trivial and
+borderline alike, which makes threshold-based routing impossible — three
+confidence thresholds in this repo never once fired their middle branch. Jev's
+spread across the same set was **0.44–1.00**.
+
+<sub>Rates: Azure <code>gpt-5.4-mini</code> $0.75/M in, $4.50/M out · Jev $0.042/M in, output free. Token counts measured, rates list price. Prompt caching off.</sub>
+
+<br>
+
+## Reproduce it
 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env          # add AZURE_OPENAI_* and TYPESAFE_API_KEY
-python evals/run_scope.py     # 51 labelled cases, both backends
 ```
 
-One reply judged against all 25 behavioural rules, both backends, equal coverage:
+```bash
+python evals/run_scope.py     # 51 labelled cases, both backends, banded results
+```
 
 ```bash
 python compare_backends.py --review "I guarantee this will never happen again - obviously you should have read your bill."
 ```
 
-Typical result: **~200ms vs ~5,500ms**, **$125 vs ~$5,800 per million reviews**.
-Latency and token counts move a few percent run to run, so the multiples land
-between roughly 27–30× on speed and 45–47× on cost. Accuracy across the 51-case
-set comes out even.
+No credentials? The whole guardrail layer minus the model calls runs offline:
 
----
+```bash
+python tests/test_offline.py      # 63 tests
+python demo_guardrails.py         # the sampler and the regex scanner
+```
+
+<br>
 
 ## The agent under test
 
-A multi-agent carrier support assistant: a **generalized triage agent** that
-routes to six specialist **routines** (billing, payments, home internet, plans &
-devices, tech support, account admin), all over mock tools.
+A multi-agent carrier support assistant: a **generalized triage agent** routing
+to six specialist desks, over 43 mock tools.
 
 ```
                     ┌──────────────────────────────────────────┐
@@ -54,101 +127,33 @@ devices, tech support, account admin), all over mock tools.
                                     handoff_to_triage  /  escalate_to_human
 ```
 
-Every node is a LangGraph ReAct agent. Handoffs are tools that return
+Every node is a LangGraph ReAct agent. Handoffs are tools returning
 `Command(goto=..., graph=Command.PARENT)`, so a transfer re-enters the graph at
-the target desk **inside the same turn** with the full message history, and the
-customer never repeats themselves. `active_agent` is checkpointed, so their
-*next* message goes straight back to the desk handling them (sticky routing,
-like a real contact center) instead of back through triage.
+the target desk **inside the same turn** with full history, and the customer
+never repeats themselves. `active_agent` is checkpointed, so their next message
+goes straight back to the desk handling them.
 
----
+Guardrails run at **five layers**: deterministic runtime gates (auth floors,
+jittered credit caps, probabilistic step-up), a regex and Luhn output scanner,
+topical scope, a 25-rule behavioural rubric, and a 75-clause prompt bank
+resampled on every model call.
 
-## Results
+<br>
 
-51 labelled cases (`evals/scope_cases.py`), both backends, same rules, same
-thresholds, same agent. Reproduce with `python evals/run_scope.py`.
-
-| | accuracy | false refusals | missed | median latency |
-|---|---|---|---|---|
-| **jev** | 48/51 (94%) | 1 | 2 | **177ms** |
-| **llm** | 46/51 (90%) | 0 | 5 | 1193ms |
-
-**Accuracy is a tie.** Two of the LLM's five misses are an artefact of this
-repo's own content-filter handling (a provider policy refusal escalates instead
-of blocking, so a jailbreak gets through). Excluding those, genuine errors are
-**3 vs 3**. Jev's one false refusal — *"is this conversation recorded"* — is a
-real miss on a documented must-answer case.
-
-**Cost**, measured on one conversation:
-
-| | guardrail calls | agent input tokens | total / turn |
-|---|---|---|---|
-| **jev** | $0.000060 | 28,531 | **$0.0231** |
-| **llm** | $0.001019 | 51,436 | $0.0413 |
-
-19× on a single scope check ($60 vs $1,118 per million), but the larger effect is the agent: guardrailing
-with Jev takes the rules *out of the system prompt* (8,694 → 3,004 chars), and
-that prompt is re-sent on every model call in the agent loop. End to end,
-**1.79× cheaper at the same accuracy**. Prompt caching is off — enabling it
-would narrow this.
-
-**Coverage — the fair comparison.** 25 behavioural rules. The LLM judge normally
-samples 4–8 per turn, because judging all 25 costs more than the reply did. That
-is a budget constraint, not a policy decision — so the honest comparison forces
-both to evaluate all 25:
-
-| | rules | latency | cost | per 1M reviews |
-|---|---|---|---|---|
-| **jev** | 25/25 | **~200ms** | $0.000125 | **$125** |
-| **llm** | 25/25 | ~5,500ms | ~$0.0058 | ~$5,800 |
-
-**~27–30× faster, ~45–47× cheaper at identical coverage** — roughly $5,700 more
-per million reviews to check the same rules. Latency and token counts vary a
-few percent per run. Reproduce with
-`python compare_backends.py --review "<a reply>"`.
-
-**Calibration.** The LLM judge returned 0.96–0.99 on nearly every case, which
-makes threshold-based routing ("uncertain → human") impossible. Jev's spread
-across the same set was 0.44–1.00.
-
-Rates: Azure `gpt-5.4-mini` $0.75/M in, $4.50/M out; Jev $0.042/M in, output
-free. Token counts are measured; rates are list price.
-
-> **Note on the dev server.** `.claude/launch.json` runs `python3 -m uvicorn`.
-> That must be the interpreter that has the dependencies installed — if your
-> shell resolves `python3` to a system Python, point `runtimeExecutable` at the
-> right one (e.g. the output of `which -a python3` that can `import uvicorn`),
-> or just run the server directly:
-> `python -m uvicorn webui.app:app --port 8420`
-
-## Quick start
+## Talk to the agent
 
 ```bash
-pip install -r requirements.txt
-cp .env.example .env      # then fill in the credentials
-python run.py --check     # verifies the credential and the model id
+python run.py --check     # verify the credential and the deployment
 python run.py             # chat
+python run.py --guardrails jev    # run the agent under either backend
 ```
 
-The default is **Azure OpenAI**, reading `AZURE_OPENAI_ENDPOINT` and
-`AZURE_OPENAI_API_KEY` from `.env` (gitignored, never committed).
-
-The part after the colon in `TLIFE_MODEL` is the **deployment name**, which on
-Azure is usually *not* the base model name — a mismatch gives you
-`404 DeploymentNotFound`. An Azure resource's `/models` endpoint returns the
-whole catalogue, most of which is not deployed, so `--check` queries
-`/openai/deployments` instead and lists what the resource can actually serve:
-
-```
-TLIFE_MODEL=azure:<deployment> python run.py --check
-```
-
-No API key? The guardrail layer and the whole tool surface run offline:
-
-```bash
-python demo_guardrails.py --routine billing --turns 6 --show-text
-python tests/test_offline.py
-```
+The default provider is **Azure OpenAI**, reading `AZURE_OPENAI_ENDPOINT` and
+`AZURE_OPENAI_API_KEY` from `.env`. The part after the colon in `TLIFE_MODEL` is
+the **deployment name**, which on Azure is usually *not* the base model name;
+a mismatch gives `404 DeploymentNotFound`. An Azure resource's `/models`
+endpoint returns the whole catalogue, most of which is not deployed, so
+`--check` queries `/openai/deployments` and lists what it can actually serve.
 
 ### In-chat commands
 
@@ -193,9 +198,8 @@ Billing: I can't apply $200 myself. The cap for this conversation is $23,
   2.57s · 2 model calls · 1 tool call · 5,887 tokens (5,829 in / 58 out)
 ```
 
----
-
-## Two builds: rules in the prompt, or rules as typed questions
+<details>
+<summary><b>How the two builds differ, in detail</b></summary>
 
 The same agent runs under either guardrail backend, selected with
 `--guardrails` or `TLIFE_GUARDRAIL_BACKEND`:
@@ -233,14 +237,11 @@ Two consequences worth stating plainly:
 Everything lands in the same violation registry and renders identically, with
 `backend=llm` or `backend=jev` in the evidence line.
 
-**Status:** the Jev backend is written against the real `langchain-typesafe`
-API (0.0.1a3) and its question schemas are unit-tested, but it has not been run
-against the live service — that needs a `TYPESAFE_API_KEY`. The `llm` build is
-exercised end to end.
 
----
+</details>
 
-## Two kinds of guardrail
+<details>
+<summary><b>Hard guardrails vs soft guardrails, and why they need different enforcement</b></summary>
 
 The guardrails split by **how you can tell they were broken**, and the two kinds
 need completely different enforcement:
@@ -260,9 +261,11 @@ On top of that, *which* rules appear in the prompt is itself randomised — see
 [the stochastic layer](#the-stochastic-rulebook) below. That is a separate idea
 from soft/hard: it is about rule *presentation*, not rule *enforcement*.
 
----
 
-## Soft guardrails: topical scope
+</details>
+
+<details>
+<summary><b>Topical scope: the 10 out-of-scope categories and how they're enforced</b></summary>
 
 `guardrails/topic_policy.py` defines what the assistant will and will not
 discuss. Ten out-of-scope categories — coding, homework, general trivia,
@@ -325,9 +328,11 @@ Try it: `python demo_guardrails.py --scope` runs the judge over a 14-case set
 including the hard ones (app crashing = in scope, abuse disclosure = in scope
 and urgent).
 
----
 
-## The stochastic rulebook
+</details>
+
+<details>
+<summary><b>The stochastic rulebook: 75 clauses resampled every model call</b></summary>
 
 Separately from soft/hard enforcement, the *set of rules shown to the model* is
 resampled every call. Guardrails run at three layers.
@@ -450,7 +455,8 @@ also left at the provider default — the *rules* are stochastic here, not the
 token sampling, and mixing those two knobs makes failures impossible to
 attribute.
 
----
+
+</details>
 
 ## The comparison UI
 
@@ -474,7 +480,8 @@ headless browser captures it cleanly:
   "http://localhost:8420/showcase?panel=3"
 ```
 
-## Layout
+<details>
+<summary><b>Repository layout</b></summary>
 
 ```
 run.py                        interactive CLI entry point
@@ -508,7 +515,10 @@ tlife_agent/
   tools/                      mock tools, one module per desk
 ```
 
-## Extending it
+</details>
+
+<details>
+<summary><b>Extending it: new desks, new guardrails, real backends</b></summary>
 
 **A new desk**: add its tools in `tools/`, a body in `prompts.ROUTINE_BODIES`, a
 label in `ROUTINE_LABELS`, an entry in `routines/desks.DESK_TOOLS`, and a line
@@ -543,3 +553,5 @@ On OpenAI, `parallel_tool_calls` is forced off (`routines/base.py`). Handoffs ar
 tools that return `Command(goto=...)`; letting the model emit one in the same
 assistant turn as an ordinary tool call races the routing command against the
 sibling tool result. One call per step removes the race.
+
+</details>
